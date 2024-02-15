@@ -313,8 +313,16 @@ class RedGymEnv(Env):
             expl = ('frames', self.knn_index.get_current_count())
         else:
             expl = ('coord_count', len(self.seen_coords))
+    
+        # Fetch Poké Ball quantities
+        pokeballs_quantities = self.find_pokeballs_quantities()
+    
+        # Add Poké Ball quantities to the stats dictionary
         self.agent_stats.append({
-            'step': self.step_count, 'x': x_pos, 'y': y_pos, 'map': map_n,
+            'step': self.step_count, 
+            'x': x_pos, 
+            'y': y_pos, 
+            'map': map_n,
             'map_location': self.get_map_location(map_n),
             'last_action': action,
             'pcount': self.read_m(PARTY_SIZE_ADDRESS), 
@@ -323,9 +331,12 @@ class RedGymEnv(Env):
             'ptypes': self.read_party(),
             'hp': self.read_hp_fraction(),
             expl[0]: expl[1],
-            'deaths': self.died_count, 'badge': self.get_badges(),
-            'event': self.progress_reward['event'], 'healr': self.total_healing_rew
-        })
+            'deaths': self.died_count, 
+            'badge': self.get_badges(),
+            'event': self.progress_reward['event'], 
+            'healr': self.total_healing_rew,
+            'pokeballs': pokeballs_quantities  # Include Poké Ball quantities here
+    })
 
     def update_frame_knn_index(self, frame_vec):
         
