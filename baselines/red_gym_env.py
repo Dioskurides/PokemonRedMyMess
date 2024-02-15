@@ -225,6 +225,8 @@ class RedGymEnv(Env):
         
         # Adjust your reward based on pokeball_reward_points
         new_reward += pokeball_reward_points * 0.5  # Example adjustment
+        # Inside your step method, after calculating pokeball_reward_points
+        self.pokeball_reward_points = pokeball_reward_points
 
 
         # Depending on exploration strategy, update the frame index or seen coordinates
@@ -304,7 +306,7 @@ class RedGymEnv(Env):
         self.full_frame_writer.add_image(self.render(reduce_res=False, update_mem=False))
         self.model_frame_writer.add_image(self.render(reduce_res=True, update_mem=False))
     
-    def append_agent_stats(self, action):
+    def append_agent_stats(self, action, pokeball_reward_points=0):
         x_pos = self.read_m(X_POS_ADDRESS)
         y_pos = self.read_m(Y_POS_ADDRESS)
         map_n = self.read_m(MAP_N_ADDRESS)
@@ -335,8 +337,10 @@ class RedGymEnv(Env):
             'badge': self.get_badges(),
             'event': self.progress_reward['event'], 
             'healr': self.total_healing_rew,
+            'pokeball_reward_points': pokeball_reward_points,
             'pokeballs': pokeballs_quantities  # Include Poké Ball quantities here
     })
+
 
     def update_frame_knn_index(self, frame_vec):
         
@@ -453,9 +457,20 @@ class RedGymEnv(Env):
             prog_string = f'step: {self.step_count:6d}'
             for key, val in self.progress_reward.items():
                 prog_string += f' {key}: {val:5.2f}'
+            prog_string += f', pokeballs: {self.agent_stats[-1].get("pokeball_reward_points", 0):.2f}'
             prog_string += f' sum: {self.total_reward:5.2f}'
+
+            # Include latest change in Poké Balls if available
+            if len(self.agent_stats) > 1:  # Ensure there is a previous step to compare with
+                current_pokeballs = self.agent_stats[-1].get('pokeballs', {})
+                previous_pokeballs = self.agent_stats[-2].get('pokeballs', {})
+                gained_pokeballs = {id: current_pokeballs.get(id, 0) - previous_pokeballs.get(id, 0) for id in current_pokeballs}
+                gained_pokeballs_str = ', '.join([f"{POKEBALL_NAMES.get(id, 'Unknown')}:+{quantity}" for id, quantity in gained_pokeballs.items() if quantity > 0])
+                if gained_pokeballs_str:  # Add this info only if there's a positive change
+                    prog_string += f', Gained Pokeballs: {gained_pokeballs_str}'
+
             print(f'\r{prog_string}', end='', flush=True)
-        
+    
         if self.step_count % 50 == 0:
             plt.imsave(
                 self.s_path / Path(f'curframe_{self.instance_id}.jpeg'), 
@@ -483,6 +498,7 @@ class RedGymEnv(Env):
                 json.dump(self.all_runs, f)
             pd.DataFrame(self.agent_stats).to_csv(
                 self.s_path / Path(f'agent_stats_{self.instance_id}.csv.gz'), compression='gzip', mode='a')
+
     
     def read_m(self, addr):
         return self.pyboy.get_memory_value(addr)
@@ -741,13 +757,4 @@ class RedGymEnv(Env):
                 print(f"Added {gained} {POKEBALL_NAMES[pokeball_id]}(s) to inventory.")
 
 
-   
 
-
-
- 
-
-   
-
-
-        
